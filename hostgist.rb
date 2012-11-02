@@ -21,8 +21,8 @@ class HostGist < BaseClass
     file
   end
 
-  def cache_clear
-    CACHE.delete_if { true }
+  def cache_clear(gist_id)
+    CACHE.delete_if { |key| key =~ /^#{gist_id}\// }
     "Cache cleared!"
   end
 
@@ -30,8 +30,9 @@ class HostGist < BaseClass
 
     def response(env)
       path = env['PATH_INFO']
-      content = if path == "/cache/clear"
-        cache_clear
+      content = if path =~ /\/cache\//
+        _, _, gist_id = path.split("/")
+        cache_clear gist_id
       else
         _, gist_id, file = path.split("/")
         download gist_id, file
@@ -42,12 +43,18 @@ class HostGist < BaseClass
 
   else # Sinatra
 
-    get "/cache/clear" do
-      cache_clear
+    get "/cache/*/clear" do |gist_id|
+      cache_clear gist_id
     end
 
     get "/*/*" do |gist_id, file|
       download gist_id, file
+    end
+
+    if ENV["RACK_ENV"] == "development"
+      get "/cache" do
+        CACHE.keys.inspect
+      end
     end
 
   end
